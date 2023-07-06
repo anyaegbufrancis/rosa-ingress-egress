@@ -51,6 +51,7 @@ resource "aws_security_group" "windows_vpc_ec2_sg" {
     cidr_blocks = [
       local.rosa_vpc_cidr_block
       , local.net_vpc_cidr_block
+      , var.ec2_inbound_network[0]
     ]
   }
   egress {
@@ -68,18 +69,16 @@ resource "aws_security_group" "windows_vpc_ec2_sg" {
 resource "aws_instance" "windows" {
   ami                         = var.windows_ami
   instance_type               = var.windows_instance_type
-  associate_public_ip_address = false
-  #key_name                    = random_string.random.result
+  associate_public_ip_address = true
   subnet_id              = aws_subnet.ent_private_subnets[0].id
   vpc_security_group_ids = [aws_security_group.windows_vpc_ec2_sg.id]
-
+  key_name                    = random_string.random.result
   tags = {
     Name = var.windows_instance_name
   }
-
 }
 
-# Add Route
+## Add Route
 resource "aws_route" "ent_rt_tgw" {
   route_table_id         = aws_vpc.ent_vpc.main_route_table_id
   destination_cidr_block = "0.0.0.0/0"

@@ -180,3 +180,59 @@ resource "aws_instance" "deployment_svr" {
 
   }
 }
+
+## Create NLB for custom domain inbound
+resource "aws_lb" "nlb" {
+  name               = var.custom_domain
+  internal = false
+  load_balancer_type = "network"
+  subnets            = [for subnet in aws_subnet.net_public_subnets : subnet.id]
+}
+
+resource "aws_lb_target_group" "nlb_tg" {
+  for_each = var.ports
+  port        = each.value
+  protocol    = "TCP"
+  vpc_id      = aws_vpc.net_vpc.id
+  target_type = "ip"
+}
+
+resource "aws_security_group" "nlb_sg" {
+  description = "Allow connection between NLB and target"
+  vpc_id      = aws_vpc.net_vpc.id
+}
+
+resource "aws_security_group_rule" "nlb_ingress" {
+  for_each = var.ports
+
+  security_group_id = aws_security_group.nlb_sg.id
+  from_port         = each.value
+  to_port           = each.value
+  protocol          = "tcp"
+  type              = "ingress"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_lb_listener" "nlb_listener" {
+  for_each = var.ports
+  load_balancer_arn = aws_lb.nlb.arn
+  protocol          = "TCP"
+  port              = each.value
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nlb_tg[each.key].arn
+  }
+}
+
+resource "aws_route53_zone" "public_zone" {
+  name = "${var.custom_domain}.com"
+}
+
+resource "aws_route53_record" "custom_zone_route" {
+  zone_id = aws_route53_zone.public_zone.zone_id
+  name    = var.custom_domain
+  type    = "CNAME"
+  ttl     = "300"
+  records = [aws_lb.nlb.dns_name]
+}
+

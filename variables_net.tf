@@ -39,3 +39,16 @@ variable "net_priv_subnet_azs" {
     "us-east-1a"
   ]
 }
+
+variable "custom_domain" {
+  description = "Name of the custom domain"
+  default =    "customdomain"  ## Replace with your custom domain name
+}
+
+variable "ports" {
+  type    = map(number)
+  default = {
+    http  = 80
+    https = 443
+  }
+}
